@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="so">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gaadhi Dodge</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; }
+  html, body { height:100%; overflow:hidden; background:#0d0f14; font-family:'Segoe UI', Arial, sans-serif; }
+  #wrap {
+    position:relative;
+    width:100%;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+  }
+  canvas {
+    background:#3a3a3f;
+    display:block;
+    max-width:100vw;
+    max-height:78vh;
+    border-radius:10px;
+    box-shadow:0 0 30px rgba(255,181,71,0.15);
+  }
+  #hud {
+    width:100%;
+    max-width:480px;
+    display:flex;
+    justify-content:space-between;
+    padding:8px 14px;
+    color:#f0dcb0;
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:0.5px;
+  }
+  #controls {
+    display:flex;
+    gap:22px;
+    margin-top:14px;
+  }
+  .ctrl-btn {
+    width:78px;
+    height:78px;
+    border-radius:50%;
+    background:linear-gradient(160deg,#ffb547,#e0781f);
+    border:none;
+    box-shadow:0 4px 0 #a8500f, 0 6px 14px rgba(0,0,0,0.4);
+    color:#20140a;
+    font-size:32px;
+    font-weight:900;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    active-opacity:0.8;
+  }
+  .ctrl-btn:active {
+    transform:translateY(3px);
+    box-shadow:0 1px 0 #a8500f, 0 3px 8px rgba(0,0,0,0.4);
+  }
+  #overlay {
+    position:absolute;
+    top:0; left:0; right:0; bottom:0;
+    background:rgba(8,9,13,0.92);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:30px;
+    color:#f0dcb0;
+  }
+  #overlay h1 {
+    font-size:34px;
+    color:#ffb547;
+    letter-spacing:1px;
+    margin-bottom:14px;
+    text-shadow:0 2px 0 #a8500f;
+  }
+  #overlay p { font-size:15px; margin:5px 0; color:#cbb98f; max-width:340px; }
+  #overlay .accent { color:#5fd68a; font-weight:700; }
+  #startBtn, #retryBtn {
+    margin-top:22px;
+    padding:14px 40px;
+    font-size:18px;
+    font-weight:800;
+    background:linear-gradient(160deg,#5fd68a,#2f9e5c);
+    border:none;
+    border-radius:40px;
+    color:#0a1a10;
+    box-shadow:0 4px 0 #1f6e3f;
+  }
+  #startBtn:active, #retryBtn:active { transform:translateY(3px); box-shadow:0 1px 0 #1f6e3f; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <span id="scoreLabel">Score: 0</span>
+    <span id="levelLabel">Level 1</span>
+  </div>
+  <canvas id="game" width="360" height="600"></canvas>
+  <div id="controls">
+    <button class="ctrl-btn" id="leftBtn">◀</button>
+    <button class="ctrl-btn" id="rightBtn">▶</button>
+  </div>
+
+  <div id="overlay">
+    <h1>GAADHI DODGE</h1>
+    <p>Taabo <span class="accent">◀ ▶</span> si aad gaadhigaaga u kaxayso.</p>
+    <p>Ka fogow gaadhiyada kale ee kaga soo degaya kore!</p>
+    <p><span class="accent">5 Level</span> oo kala sareeya — mar walba oo score-kaagu kordho, ciyaartu way sii adkaataa.</p>
+    <button id="startBtn">BILOW CIYAARTA</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const ROAD_LEFT = 60, ROAD_RIGHT = W - 60;
+const LANE_COUNT = 3;
+const LANE_WIDTH = (ROAD_RIGHT - ROAD_LEFT) / LANE_COUNT;
+const CAR_W = 46, CAR_H = 80;
+
+const LEVEL_THRESHOLDS = [0, 15, 35, 60, 90];
+const LEVEL_SETTINGS = {
+  1: { speed: 3.2, spawn: 60, name: "Level 1 · Fudud" },
+  2: { speed: 3.9, spawn: 50, name: "Level 2 · Dhexdhexaad" },
+  3: { speed: 4.7, spawn: 42, name: "Level 3 · Adag" },
+  4: { speed: 5.6, spawn: 34, name: "Level 4 · Aad u Adag" },
+  5: { speed: 6.6, spawn: 27, name: "Level 5 · UGU ADAG!" }
+};
+
+function laneX(lane, width=CAR_W) {
+  const center = ROAD_LEFT + LANE_WIDTH * lane + LANE_WIDTH / 2;
+  return center - width / 2;
+}
+
+function getLevel(score) {
+  let level = 1;
+  for (let i = 0; i < LEVEL_THRESHOLDS.length; i++) {
+    if (score >= LEVEL_THRESHOLDS[i]) level = i + 1;
+  }
+  return Math.min(level, 5);
+}
+
+let player, obstacles, score, level, frameCount, roadOffset, levelFlash, running;
+const colors = ['#e35555', '#f2c94c', '#5fd68a', '#c084f5', '#4fb0e8'];
+
+function resetGame() {
+  player = { lane: 1, x: laneX(1), targetX: laneX(1), y: H - CAR_H - 26 };
+  obstacles = [];
+  score = 0;
+  level = 1;
+  frameCount = 0;
+  roadOffset = 0;
+  levelFlash = 60;
+  running = true;
+}
+
+function movePlayer(dir) {
+  if (!running) return;
+  if (dir === 'left' && player.lane > 0) {
+    player.lane--;
+    player.targetX = laneX(player.lane);
+  } else if (dir === 'right' && player.lane < LANE_COUNT - 1) {
+    player.lane++;
+    player.targetX = laneX(player.lane);
+  }
+}
+
+function spawnObstacle(speed) {
+  const lane = Math.floor(Math.random() * LANE_COUNT);
+  obstacles.push({
+    lane, x: laneX(lane), y: -CAR_H,
+    speed, color: colors[Math.floor(Math.random() * colors.length)]
+  });
+}
+
+function drawCar(x, y, color, isPlayer) {
+  ctx.fillStyle = color;
+  roundRect(x, y, CAR_W, CAR_H, 9);
+  ctx.fill();
+  ctx.fillStyle = isPlayer ? '#eaf6ff' : '#1a1a1a';
+  roundRect(x + 6, y + 10, CAR_W - 12, 18, 4); ctx.fill();
+  roundRect(x + 6, y + 50, CAR_W - 12, 18, 4); ctx.fill();
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawRoad() {
+  ctx.fillStyle = '#242428';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#3a3a3f';
+  ctx.fillRect(ROAD_LEFT, 0, ROAD_RIGHT - ROAD_LEFT, H);
+  ctx.fillStyle = '#f0dcb0';
+  ctx.fillRect(ROAD_LEFT - 5, 0, 5, H);
+  ctx.fillRect(ROAD_RIGHT, 0, 5, H);
+  ctx.fillStyle = '#f2c94c';
+  for (let lane = 1; lane < LANE_COUNT; lane++) {
+    const x = ROAD_LEFT + LANE_WIDTH * lane;
+    const dashLen = 26, gap = 18;
+    let y = (roadOffset % (dashLen + gap)) - (dashLen + gap);
+    while (y < H) {
+      ctx.fillRect(x - 2.5, y, 5, dashLen);
+      y += dashLen + gap;
+    }
+  }
+}
+
+function update() {
+  if (!running) return;
+  const settings = LEVEL_SETTINGS[level];
+
+  if (player.x < player.targetX) player.x = Math.min(player.x + 9, player.targetX);
+  else if (player.x > player.targetX) player.x = Math.max(player.x - 9, player.targetX);
+
+  roadOffset += settings.speed * 1.6;
+  frameCount++;
+
+  if (frameCount % settings.spawn === 0) spawnObstacle(settings.speed);
+
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const o = obstacles[i];
+    o.y += o.speed;
+    if (o.y > H) {
+      obstacles.splice(i, 1);
+      score++;
+    }
+  }
+
+  const newLevel = getLevel(score);
+  if (newLevel !== level) { level = newLevel; levelFlash = 70; }
+
+  const pRect = { x: player.x, y: player.y, w: CAR_W, h: CAR_H };
+  for (const o of obstacles) {
+    if (pRect.x < o.x + CAR_W && pRect.x + CAR_W > o.x &&
+        pRect.y < o.y + CAR_H && pRect.y + CAR_H > o.y) {
+      running = false;
+      showGameOver();
+    }
+  }
+
+  document.getElementById('scoreLabel').textContent = 'Score: ' + score;
+  document.getElementById('levelLabel').textContent = LEVEL_SETTINGS[level].name;
+}
+
+function draw() {
+  drawRoad();
+  for (const o of obstacles) drawCar(o.x, o.y, o.color, false);
+  drawCar(player.x, player.y, '#4fb0e8', true);
+
+  if (levelFlash > 0) {
+    ctx.fillStyle = 'rgba(95,214,138,' + Math.min(1, levelFlash / 40) + ')';
+    ctx.font = 'bold 34px Segoe UI, Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('LEVEL ' + level + '!', W / 2, H / 2);
+    levelFlash--;
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function showGameOver() {
+  const overlay = document.getElementById('overlay');
+  overlay.innerHTML = `
+    <h1 style="color:#e35555;">CIYAARTA WAY DHAMAATAY</h1>
+    <p>Score-kaaga: <span class="accent">${score}</span></p>
+    <p>Level aad gaadhay: <span class="accent">${level}</span></p>
+    <button id="retryBtn">MAR KALE ISKU DAY</button>
+  `;
+  overlay.classList.remove('hidden');
+  document.getElementById('retryBtn').addEventListener('click', () => {
+    overlay.classList.add('hidden');
+    resetGame();
+  });
+}
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('overlay').classList.add('hidden');
+  resetGame();
+});
+
+const leftBtn = document.getElementById('leftBtn');
+const rightBtn = document.getElementById('rightBtn');
+['touchstart','mousedown'].forEach(evt => {
+  leftBtn.addEventListener(evt, e => { e.preventDefault(); movePlayer('left'); });
+  rightBtn.addEventListener(evt, e => { e.preventDefault(); movePlayer('right'); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') movePlayer('left');
+  if (e.key === 'ArrowRight') movePlayer('right');
+});
+
+resetGame();
+running = false;
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
