@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="so">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sawir Kobcin — AI Photo Upscaler | Anwar Official</title>
+<meta name="theme-color" content="#0d0f14">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d0f14; --surface:#171a21; --surface-2:#1e222b; --line:#2b3038;
+    --amber:#ffb547; --amber-dim:#8a5f22; --blue:#4fb0e8; --green:#5fd68a;
+    --red:#e35555; --text:#ece7db; --text-dim:#8f9199; --tan:#cbb98f;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; line-height:1.5; padding-bottom:40px; }
+  h1,h2,h3,.display { font-family:'Rajdhani',sans-serif; letter-spacing:0.02em; }
+
+  header {
+    display:flex; align-items:center; gap:10px;
+    padding:16px 20px; border-bottom:1px solid var(--line);
+    position:sticky; top:0; background:rgba(13,15,20,0.92); backdrop-filter:blur(6px); z-index:10;
+  }
+  .back { color:var(--text-dim); text-decoration:none; font-size:20px; padding:4px 6px; }
+  .logo-text { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:18px; }
+  .logo-text span { color:var(--amber); }
+
+  main { max-width:640px; margin:0 auto; padding:26px 18px; }
+
+  .eyebrow {
+    display:inline-block; font-size:11.5px; font-weight:600; letter-spacing:0.12em;
+    color:var(--green); border:1px solid rgba(95,214,138,0.35); background:rgba(95,214,138,0.08);
+    padding:4px 11px; border-radius:20px; margin-bottom:14px;
+  }
+  h1.title { font-size:30px; font-weight:700; margin-bottom:8px; }
+  h1.title em { font-style:normal; color:var(--amber); }
+  .subtitle { font-size:14px; color:var(--tan); margin-bottom:22px; }
+
+  .notice {
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px; font-size:12.8px; color:var(--text-dim); margin-bottom:22px;
+  }
+  .notice b { color:var(--tan); }
+
+  .dropzone {
+    border:2px dashed #3a3f4a; border-radius:16px; padding:40px 20px;
+    text-align:center; cursor:pointer; transition:border-color .15s;
+    background:repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(255,255,255,0.015) 10px, rgba(255,255,255,0.015) 20px);
+  }
+  .dropzone.hasimg { padding:16px; }
+  .dropzone:active { border-color:var(--amber); }
+  .dropzone svg { width:38px; height:38px; opacity:0.55; margin-bottom:10px; }
+  .dropzone .label { font-weight:600; font-size:15px; color:var(--tan); }
+  .dropzone .sub { font-size:12px; color:#5b606b; margin-top:4px; }
+  input[type=file] { display:none; }
+
+  .preview-wrap { display:none; margin-top:18px; }
+  .preview-wrap.show { display:block; }
+  .preview-img { width:100%; border-radius:12px; display:block; background:#000; }
+  .dims { text-align:center; font-size:12px; color:var(--text-dim); margin-top:8px; font-family:'Rajdhani',sans-serif; letter-spacing:0.03em; }
+
+  .options { margin-top:22px; }
+  .options h3 { font-size:14px; font-weight:600; color:var(--tan); margin-bottom:10px; }
+  .scale-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .scale-btn {
+    background:var(--surface-2); border:1px solid var(--line); border-radius:10px;
+    padding:14px 10px; text-align:center; color:var(--text); cursor:pointer;
+  }
+  .scale-btn .big { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:20px; color:var(--blue); }
+  .scale-btn .small { font-size:11px; color:var(--text-dim); margin-top:2px; }
+  .scale-btn.active { border-color:var(--amber); background:rgba(255,181,71,0.08); }
+  .scale-btn.active .big { color:var(--amber); }
+
+  .go-btn {
+    width:100%; margin-top:20px; padding:15px 0; border:none; border-radius:12px;
+    background:var(--amber); color:#20140a; font-family:'Rajdhani',sans-serif;
+    font-weight:700; font-size:17px; letter-spacing:0.03em; box-shadow:0 3px 0 var(--amber-dim);
+    opacity:0.4; pointer-events:none;
+  }
+  .go-btn.ready { opacity:1; pointer-events:auto; }
+  .go-btn:active { transform:translateY(2px); box-shadow:0 1px 0 var(--amber-dim); }
+  .go-btn.working { opacity:0.7; pointer-events:none; }
+
+  .progress-wrap { display:none; margin-top:16px; }
+  .progress-wrap.show { display:block; }
+  .progress-label { font-size:12.5px; color:var(--text-dim); margin-bottom:6px; display:flex; justify-content:space-between; }
+  .progress-track { height:8px; border-radius:6px; background:var(--surface-2); overflow:hidden; }
+  .progress-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--blue),var(--green)); transition:width .2s; }
+
+  .result-wrap { display:none; margin-top:26px; }
+  .result-wrap.show { display:block; }
+  .result-wrap h3 { font-size:16px; margin-bottom:10px; }
+  .badge-row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .badge {
+    font-size:11px; font-weight:600; letter-spacing:0.05em; padding:4px 10px; border-radius:20px;
+    border:1px solid rgba(95,214,138,0.35); background:rgba(95,214,138,0.1); color:var(--green);
+  }
+  .download-btn {
+    display:block; width:100%; text-align:center; margin-top:16px; padding:14px 0;
+    border-radius:12px; background:var(--green); color:#0a1a10; text-decoration:none;
+    font-family:'Rajdhani',sans-serif; font-weight:700; font-size:16px; box-shadow:0 3px 0 #1f6e3f;
+  }
+  .download-btn:active { transform:translateY(2px); box-shadow:0 1px 0 #1f6e3f; }
+
+  .error-box {
+    display:none; margin-top:16px; padding:12px 14px; border-radius:10px;
+    background:rgba(227,85,85,0.1); border:1px solid rgba(227,85,85,0.35); color:#f0a0a0; font-size:13px;
+  }
+  .error-box.show { display:block; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html">←</a>
+  <div class="logo-text">ANWAR <span>OFFICIAL</span></div>
+</header>
+
+<main>
+  <span class="eyebrow">AI PHOTO STUDIO</span>
+  <h1 class="title">Sawirkaaga <em>Tayo Sare</em> ka dhig</h1>
+  <p class="subtitle">AI dhab ah (ESRGAN) oo si toos ah mobile-kaaga gudihiisa ku shaqeeya — wax lama upload garayn server, sawirkaagu kuma bixo taleefankaaga.</p>
+
+  <div class="notice">
+    <b>Fiiro gaar ah:</b> Tani waxay kordhisaa <b>tayada &amp; xajmiga (resolution)</b> sawirka — waxay ka dhigaysaa mid cad oo aan qallafsanayn marka la weyneeyo. <b>Kama beddesho hairstyle-ka, dharka, ama wax kale oo sawirka ku jira.</b>
+  </div>
+
+  <div class="dropzone" id="dropzone">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#8f9199" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="M21 15l-5-5-9 9"/></svg>
+    <div class="label">Taabo si aad sawir u doorato</div>
+    <div class="sub">JPG ama PNG</div>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <div class="preview-wrap" id="previewWrap">
+    <img id="originalImg" class="preview-img" alt="Sawirka asalka ah">
+    <div class="dims" id="originalDims"></div>
+  </div>
+
+  <div class="options" id="options" style="display:none;">
+    <h3>Dooro heerka kobcinta</h3>
+    <div class="scale-grid">
+      <div class="scale-btn active" data-scale="2">
+        <div class="big">2×</div>
+        <div class="small">Degdeg · HD</div>
+      </div>
+      <div class="scale-btn" data-scale="4">
+        <div class="big">4×</div>
+        <div class="small">Tartiib · Ultra</div>
+      </div>
+    </div>
+
+    <button class="go-btn" id="goBtn">KOBCI SAWIRKA</button>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-label"><span>Waa la shaqaynayaa...</span><span id="progressPct">0%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div class="result-wrap" id="resultWrap">
+    <h3>Natiijada</h3>
+    <img id="resultImg" class="preview-img" alt="Sawirka la kobciyay">
+    <div class="dims" id="resultDims"></div>
+    <div class="badge-row" id="badgeRow"></div>
+    <a class="download-btn" id="downloadBtn" download="sawir-tayo-sare.png">⬇ SOO DEJI SAWIRKA</a>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@latest/dist/umd/2x.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@latest/dist/umd/4x.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/upscaler@latest/dist/browser/umd/upscaler.min.js"></script>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const previewWrap = document.getElementById('previewWrap');
+const originalImg = document.getElementById('originalImg');
+const originalDims = document.getElementById('originalDims');
+const options = document.getElementById('options');
+const goBtn = document.getElementById('goBtn');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const progressPct = document.getElementById('progressPct');
+const resultWrap = document.getElementById('resultWrap');
+const resultImg = document.getElementById('resultImg');
+const resultDims = document.getElementById('resultDims');
+const badgeRow = document.getElementById('badgeRow');
+const downloadBtn = document.getElementById('downloadBtn');
+const errorBox = document.getElementById('errorBox');
+
+let selectedScale = 2;
+let loadedImage = null;
+const MAX_INPUT_EDGE = 900; // safety cap so mid-range phones don't crash/hang
+
+dropzone.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      loadedImage = img;
+      originalImg.src = ev.target.result;
+      originalDims.textContent = `${img.naturalWidth} × ${img.naturalHeight}px`;
+      previewWrap.classList.add('show');
+      dropzone.classList.add('hasimg');
+      options.style.display = 'block';
+      resultWrap.classList.remove('show');
+      errorBox.classList.remove('show');
+      goBtn.classList.add('ready');
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.querySelectorAll('.scale-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.scale-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedScale = parseInt(btn.dataset.scale, 10);
+  });
+});
+
+function resizeIfNeeded(img) {
+  const longEdge = Math.max(img.naturalWidth, img.naturalHeight);
+  if (longEdge <= MAX_INPUT_EDGE) return img;
+  const ratio = MAX_INPUT_EDGE / longEdge;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.naturalWidth * ratio);
+  canvas.height = Math.round(img.naturalHeight * ratio);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const resized = new Image();
+  resized.src = canvas.toDataURL('image/png');
+  return canvas; // upscaler accepts canvas directly
+}
+
+function qualityBadges(w, h) {
+  const badges = [];
+  if (w >= 3840 || h >= 2160) badges.push('4K DIYAAR');
+  if (w >= 7680 || h >= 4320) badges.push('8K DIYAAR');
+  if (badges.length === 0) badges.push(`${selectedScale}× la kobciyay`);
+  return badges;
+}
+
+goBtn.addEventListener('click', async () => {
+  if (!loadedImage) return;
+  goBtn.classList.add('working');
+  goBtn.textContent = 'WAA LA SHAQAYNAYAA...';
+  progressWrap.classList.add('show');
+  errorBox.classList.remove('show');
+  resultWrap.classList.remove('show');
+  progressFill.style.width = '0%';
+  progressPct.textContent = '0%';
+
+  try {
+    const input = resizeIfNeeded(loadedImage);
+    const model = selectedScale === 4 ? ESRGANSlim4x : ESRGANSlim2x;
+    const upscaler = new Upscaler({ model });
+
+    const resultSrc = await upscaler.upscale(input, {
+      patchSize: 64,
+      padding: 6,
+      progress: (rate) => {
+        const pct = Math.round(rate * 100);
+        progressFill.style.width = pct + '%';
+        progressPct.textContent = pct + '%';
+      }
+    });
+
+    const resultImage = new Image();
+    resultImage.onload = () => {
+      resultImg.src = resultSrc;
+      resultDims.textContent = `${resultImage.naturalWidth} × ${resultImage.naturalHeight}px`;
+      badgeRow.innerHTML = '';
+      qualityBadges(resultImage.naturalWidth, resultImage.naturalHeight).forEach(text => {
+        const span = document.createElement('span');
+        span.className = 'badge';
+        span.textContent = text;
+        badgeRow.appendChild(span);
+      });
+      downloadBtn.href = resultSrc;
+      resultWrap.classList.add('show');
+      resultWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    resultImage.src = resultSrc;
+
+  } catch (err) {
+    console.error(err);
+    errorBox.textContent = 'Khalad ayaa dhacay — waxaa laga yaabaa in sawirku aad u weyn yahay ama taleefankaagu uu adag yahay. Isku day sawir yar ama heerka 2× isticmaal.';
+    errorBox.classList.add('show');
+  } finally {
+    goBtn.classList.remove('working');
+    goBtn.textContent = 'KOBCI SAWIRKA';
+    progressWrap.classList.remove('show');
+  }
+});
+</script>
+</body>
+</html>
